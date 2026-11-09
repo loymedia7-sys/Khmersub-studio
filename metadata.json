@@ -1,0 +1,6 @@
+{
+  "name": "Khmersub Studio — AI Video Subtitle & Burn-In Engine",
+  "description": "Professional Khmer & English video subtitle studio powered by FFmpeg and Gemini ASR with real-time timeline sync, batch segment editing, and burned-in MP4 export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

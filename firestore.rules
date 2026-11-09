@@ -1,0 +1,348 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Pillar 0: Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Helpers
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isParentProjectOwner(projectId) {
+      return exists(/databases/$(database)/documents/projects/$(projectId)) &&
+        get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+    }
+
+    // Validation Blueprint: UserProfile
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'email', 'plan',
+          'minutesTranscribed', 'minutesLimit', 'periodStart',
+          'defaultLanguage', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'plan',
+          'minutesTranscribed', 'minutesLimit', 'periodStart',
+          'defaultLanguage', 'createdAt', 'updatedAt'
+        ]) &&
+        data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.uid == request.auth.uid &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+        data.plan is string && data.plan.size() <= 20 && (data.plan == 'free' || data.plan == 'pro') &&
+        data.minutesTranscribed is number && data.minutesTranscribed >= 0 && data.minutesTranscribed <= 100000 &&
+        data.minutesLimit is number && data.minutesLimit >= 0 && data.minutesLimit <= 100000 &&
+        data.periodStart is string && data.periodStart.size() >= 1 && data.periodStart.size() <= 64 &&
+        data.defaultLanguage is string && data.defaultLanguage.size() <= 20 &&
+        (data.defaultLanguage == 'km' || data.defaultLanguage == 'en' || data.defaultLanguage == 'km+en') &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Project
+    function isValidProject(data) {
+      return data.keys().hasAll([
+          'ownerId', 'title', 'videoStoragePath', 'videoUrl',
+          'durationSec', 'sizeBytes', 'mimeType', 'audioPath',
+          'language', 'status', 'segmentCount', 'editedCount',
+          'lastJobId', 'tags', 'deletedAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'title', 'videoStoragePath', 'videoUrl',
+          'durationSec', 'sizeBytes', 'mimeType', 'audioPath',
+          'language', 'status', 'segmentCount', 'editedCount',
+          'lastJobId', 'tags', 'deletedAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.videoStoragePath is string && data.videoStoragePath.size() <= 500 &&
+        data.videoUrl is string && data.videoUrl.size() <= 1000 &&
+        data.durationSec is number && data.durationSec >= 0 && data.durationSec <= 86400 &&
+        data.sizeBytes is number && data.sizeBytes >= 0 && data.sizeBytes <= 10737418240 &&
+        data.mimeType is string && data.mimeType.size() <= 100 &&
+        data.audioPath is string && data.audioPath.size() <= 500 &&
+        data.language is string && data.language.size() <= 20 &&
+        (data.language == 'km' || data.language == 'en' || data.language == 'km+en') &&
+        data.status is string && data.status.size() <= 30 &&
+        (data.status == 'uploaded' || data.status == 'transcribing' || data.status == 'ready' || data.status == 'exporting' || data.status == 'done' || data.status == 'failed') &&
+        data.segmentCount is number && data.segmentCount >= 0 && data.segmentCount <= 10000 &&
+        data.editedCount is number && data.editedCount >= 0 && data.editedCount <= 10000 &&
+        data.lastJobId is string && data.lastJobId.size() <= 128 &&
+        data.tags is list && data.tags.size() <= 10 &&
+        (data.tags.size() == 0 || (data.tags[0] is string && data.tags[0].size() <= 50)) &&
+        data.deletedAt is string && data.deletedAt.size() <= 64 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Segment
+    function isValidSegment(data) {
+      return data.keys().hasAll([
+          'ownerId', 'projectId', 'index', 'start', 'end',
+          'text', 'originalText', 'speaker', 'lang',
+          'confidence', 'edited', 'editedBy', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'projectId', 'index', 'start', 'end',
+          'text', 'originalText', 'speaker', 'lang',
+          'confidence', 'edited', 'editedBy', 'updatedAt'
+        ]) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.projectId is string && data.projectId.size() >= 1 && data.projectId.size() <= 128 && data.projectId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.index is number && data.index >= 0 && data.index <= 100000 &&
+        data.start is number && data.start >= 0 && data.start <= 86400 &&
+        data.end is number && data.end >= data.start && data.end <= 86400 &&
+        data.text is string && data.text.size() <= 1000 &&
+        data.originalText is string && data.originalText.size() <= 1000 &&
+        data.speaker is string && data.speaker.size() <= 100 &&
+        data.lang is string && data.lang.size() <= 20 &&
+        (data.lang == 'km' || data.lang == 'en' || data.lang == 'mixed') &&
+        data.confidence is number && data.confidence >= 0 && data.confidence <= 1 &&
+        data.edited is bool &&
+        data.editedBy is string && data.editedBy.size() <= 128 &&
+        data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Job
+    function isValidJob(data) {
+      return data.keys().hasAll([
+          'ownerId', 'projectId', 'type', 'status', 'progress',
+          'step', 'provider', 'error', 'attempts', 'startedAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'projectId', 'type', 'status', 'progress',
+          'step', 'provider', 'error', 'attempts', 'startedAt', 'updatedAt'
+        ]) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.projectId is string && data.projectId.size() >= 1 && data.projectId.size() <= 128 && data.projectId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.type is string && data.type.size() <= 30 &&
+        (data.type == 'transcribe' || data.type == 'export_srt' || data.type == 'export_vtt' || data.type == 'export_txt' || data.type == 'export_burn') &&
+        data.status is string && data.status.size() <= 20 &&
+        (data.status == 'queued' || data.status == 'running' || data.status == 'done' || data.status == 'failed') &&
+        data.progress is number && data.progress >= 0 && data.progress <= 1 &&
+        data.step is string && data.step.size() <= 40 &&
+        (data.step == 'queued' || data.step == 'extract_audio' || data.step == 'asr' || data.step == 'postprocess' || data.step == 'save' || data.step == 'burn_subtitles' || data.step == 'completed') &&
+        data.provider is string && data.provider.size() <= 30 &&
+        (data.provider == 'gemini' || data.provider == 'whisper' || data.provider == 'ffmpeg') &&
+        data.error is string && data.error.size() <= 500 &&
+        data.attempts is number && data.attempts >= 1 && data.attempts <= 10 &&
+        data.startedAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: ExportItem
+    function isValidExportItem(data) {
+      return data.keys().hasAll([
+          'ownerId', 'projectId', 'format', 'outputPath',
+          'url', 'fontUsed', 'createdBy', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'projectId', 'format', 'outputPath',
+          'url', 'fontUsed', 'createdBy', 'createdAt'
+        ]) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.projectId is string && data.projectId.size() >= 1 && data.projectId.size() <= 128 && data.projectId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.format is string && data.format.size() <= 20 &&
+        (data.format == 'srt' || data.format == 'vtt' || data.format == 'txt' || data.format == 'burn') &&
+        data.outputPath is string && data.outputPath.size() >= 1 && data.outputPath.size() <= 500 &&
+        data.url is string && data.url.size() >= 1 && data.url.size() <= 1000 &&
+        data.fontUsed is string && data.fontUsed.size() <= 100 &&
+        data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128 && data.createdBy.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.createdBy == request.auth.uid &&
+        data.createdAt is timestamp;
+    }
+
+    // Validation Blueprint: Template
+    function isValidTemplate(data) {
+      return data.keys().hasAll([
+          'ownerId', 'name', 'font', 'fontSize', 'primaryColor',
+          'accentColor', 'outline', 'position', 'isPublic',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'name', 'font', 'fontSize', 'primaryColor',
+          'accentColor', 'outline', 'position', 'isPublic',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        data.font is string && data.font.size() <= 60 &&
+        (data.font == 'Battambang' || data.font == 'Noto Sans Khmer' || data.font == 'Khmer UI' || data.font == 'Siemreap' || data.font == 'Hanuman' || data.font == 'Kantumruy Pro' || data.font == 'Koulen' || data.font == 'Moul' || data.font == 'Bayon' || data.font == 'Dangrek' || data.font == 'Preahvihear' || data.font == 'Bokor' || data.font == 'Odor Mean Chey' || data.font == 'Content' || data.font == 'Suwannaphum' || data.font == 'English Sans' || data.font == 'Plus Jakarta Sans' || data.font == 'Custom Font') &&
+        data.fontSize is number && data.fontSize >= 16 && data.fontSize <= 96 &&
+        data.primaryColor is string && data.primaryColor.size() == 7 && data.primaryColor.matches('^#[0-9A-Fa-f]{6}$') &&
+        data.accentColor is string && data.accentColor.size() == 7 && data.accentColor.matches('^#[0-9A-Fa-f]{6}$') &&
+        data.outline is number && data.outline >= 0 && data.outline <= 10 &&
+        data.position is string && data.position.size() <= 20 &&
+        (data.position == 'bottom' || data.position == 'middle' || data.position == 'top' || data.position == 'custom') &&
+        data.isPublic is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Collection: /users/{uid} (PII Isolated to strict owner)
+    match /users/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if isSignedIn() && isValidId(uid) && request.auth.uid == uid &&
+        isValidUserProfile(incoming()) &&
+        incoming().uid == uid &&
+        incoming().plan == 'free' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidUserProfile(incoming()) &&
+        isValidId(uid) && request.auth.uid == uid &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().plan == existing().plan &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'minutesTranscribed', 'defaultLanguage', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // Collection: /projects/{projectId}
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(projectId) &&
+        isValidProject(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidProject(incoming()) &&
+        isValidId(projectId) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'videoStoragePath', 'videoUrl', 'durationSec',
+          'sizeBytes', 'mimeType', 'audioPath', 'language', 'status',
+          'segmentCount', 'editedCount', 'lastJobId', 'tags',
+          'deletedAt', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+
+      // Subcollection: /projects/{projectId}/segments/{segmentId}
+      match /segments/{segmentId} {
+        allow get: if isSignedIn() && isValidId(projectId) && isValidId(segmentId) &&
+          existing().ownerId == request.auth.uid &&
+          isParentProjectOwner(projectId);
+        allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+        allow create: if isSignedIn() && isValidId(projectId) && isValidId(segmentId) &&
+          isValidSegment(incoming()) &&
+          incoming().projectId == projectId &&
+          incoming().updatedAt == request.time &&
+          isParentProjectOwner(projectId);
+        allow update: if isSignedIn() && isValidSegment(incoming()) &&
+          isValidId(projectId) && isValidId(segmentId) &&
+          existing().ownerId == request.auth.uid &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().projectId == existing().projectId &&
+          incoming().originalText == existing().originalText &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'index', 'start', 'end', 'text', 'speaker',
+            'lang', 'confidence', 'edited', 'editedBy', 'updatedAt'
+          ]) &&
+          isParentProjectOwner(projectId);
+        allow delete: if isSignedIn() && isValidId(projectId) && isValidId(segmentId) &&
+          existing().ownerId == request.auth.uid &&
+          isParentProjectOwner(projectId);
+      }
+
+      // Subcollection: /projects/{projectId}/jobs/{jobId}
+      match /jobs/{jobId} {
+        allow get: if isSignedIn() && isValidId(projectId) && isValidId(jobId) &&
+          existing().ownerId == request.auth.uid &&
+          isParentProjectOwner(projectId);
+        allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+        allow create: if isSignedIn() && isValidId(projectId) && isValidId(jobId) &&
+          isValidJob(incoming()) &&
+          incoming().projectId == projectId &&
+          incoming().startedAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isParentProjectOwner(projectId);
+        allow update: if isSignedIn() && isValidJob(incoming()) &&
+          isValidId(projectId) && isValidId(jobId) &&
+          existing().ownerId == request.auth.uid &&
+          existing().status != 'done' &&
+          existing().status != 'failed' &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().projectId == existing().projectId &&
+          incoming().type == existing().type &&
+          incoming().provider == existing().provider &&
+          incoming().startedAt == existing().startedAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'progress', 'step', 'error', 'attempts', 'updatedAt'
+          ]) &&
+          isParentProjectOwner(projectId);
+        allow delete: if false;
+      }
+
+      // Subcollection: /projects/{projectId}/exports/{exportId}
+      match /exports/{exportId} {
+        allow get: if isSignedIn() && isValidId(projectId) && isValidId(exportId) &&
+          existing().ownerId == request.auth.uid &&
+          isParentProjectOwner(projectId);
+        allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+        allow create: if isSignedIn() && isValidId(projectId) && isValidId(exportId) &&
+          isValidExportItem(incoming()) &&
+          incoming().projectId == projectId &&
+          incoming().createdAt == request.time &&
+          isParentProjectOwner(projectId);
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(projectId) && isValidId(exportId) &&
+          existing().ownerId == request.auth.uid &&
+          isParentProjectOwner(projectId);
+      }
+    }
+
+    // Collection: /templates/{templateId}
+    match /templates/{templateId} {
+      allow get: if isSignedIn() && isValidId(templateId) &&
+        (existing().isPublic == true || existing().ownerId == request.auth.uid);
+      allow list: if isSignedIn() &&
+        (existing().isPublic == true || existing().ownerId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(templateId) &&
+        isValidTemplate(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidTemplate(incoming()) &&
+        isValidId(templateId) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'font', 'fontSize', 'primaryColor',
+          'accentColor', 'outline', 'position', 'isPublic', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn() && isValidId(templateId) &&
+        existing().ownerId == request.auth.uid;
+    }
+  }
+}

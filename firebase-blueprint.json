@@ -1,0 +1,524 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and transcription quota tracking.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the user."
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Display name of the user."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254,
+          "description": "Email address of the user."
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["free", "pro"],
+          "maxLength": 20,
+          "description": "Subscription tier."
+        },
+        "minutesTranscribed": {
+          "type": "number",
+          "description": "Total minutes transcribed in the current billing period."
+        },
+        "minutesLimit": {
+          "type": "number",
+          "description": "Maximum minutes allowed in the current billing period."
+        },
+        "periodStart": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "ISO timestamp of current billing period start."
+        },
+        "defaultLanguage": {
+          "type": "string",
+          "enum": ["km", "en", "km+en"],
+          "maxLength": 20,
+          "description": "Preferred transcription language."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update server timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "plan",
+        "minutesTranscribed",
+        "minutesLimit",
+        "periodStart",
+        "defaultLanguage",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A video subtitle project storing media references, language settings, and segment counts.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the project owner."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Project title."
+        },
+        "videoStoragePath": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Storage path for the source video."
+        },
+        "videoUrl": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Playable URL of the source video."
+        },
+        "durationSec": {
+          "type": "number",
+          "description": "Duration of the video in seconds."
+        },
+        "sizeBytes": {
+          "type": "number",
+          "description": "Size of the source video in bytes."
+        },
+        "mimeType": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "MIME type of the source video."
+        },
+        "audioPath": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Extracted 16kHz WAV audio path."
+        },
+        "language": {
+          "type": "string",
+          "enum": ["km", "en", "km+en"],
+          "maxLength": 20,
+          "description": "Language setting for ASR."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["uploaded", "transcribing", "ready", "exporting", "done", "failed"],
+          "maxLength": 30,
+          "description": "Pipeline status of the project."
+        },
+        "segmentCount": {
+          "type": "number",
+          "description": "Denormalized count of subtitle segments."
+        },
+        "editedCount": {
+          "type": "number",
+          "description": "Denormalized count of user-edited segments."
+        },
+        "lastJobId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "ID of the most recent background job."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Project tags (up to 10)."
+        },
+        "deletedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Soft delete timestamp or empty string if active."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update server timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "title",
+        "videoStoragePath",
+        "videoUrl",
+        "durationSec",
+        "sizeBytes",
+        "mimeType",
+        "audioPath",
+        "language",
+        "status",
+        "segmentCount",
+        "editedCount",
+        "lastJobId",
+        "tags",
+        "deletedAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Segment": {
+      "title": "Segment",
+      "description": "Individual timed subtitle line within a project.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the project owner for secure list queries."
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent project ID."
+        },
+        "index": {
+          "type": "number",
+          "description": "Display and export order index."
+        },
+        "start": {
+          "type": "number",
+          "description": "Start time in seconds."
+        },
+        "end": {
+          "type": "number",
+          "description": "End time in seconds."
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Current subtitle text."
+        },
+        "originalText": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Original ASR text for diff/revert."
+        },
+        "speaker": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Speaker label."
+        },
+        "lang": {
+          "type": "string",
+          "enum": ["km", "en", "mixed"],
+          "maxLength": 20,
+          "description": "Detected language of the segment."
+        },
+        "confidence": {
+          "type": "number",
+          "description": "ASR confidence score (0 to 1)."
+        },
+        "edited": {
+          "type": "boolean",
+          "description": "Whether the segment has been edited by a user."
+        },
+        "editedBy": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "UID of the user who last edited the segment, or empty."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update server timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "projectId",
+        "index",
+        "start",
+        "end",
+        "text",
+        "originalText",
+        "speaker",
+        "lang",
+        "confidence",
+        "edited",
+        "editedBy",
+        "updatedAt"
+      ]
+    },
+    "Job": {
+      "title": "Job",
+      "description": "Background transcription or export job status record.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the project owner."
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent project ID."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["transcribe", "export_srt", "export_vtt", "export_txt", "export_burn"],
+          "maxLength": 30,
+          "description": "Job pipeline type."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["queued", "running", "done", "failed"],
+          "maxLength": 20,
+          "description": "Current execution state."
+        },
+        "progress": {
+          "type": "number",
+          "description": "Progress ratio from 0 to 1."
+        },
+        "step": {
+          "type": "string",
+          "enum": ["queued", "extract_audio", "asr", "postprocess", "save", "burn_subtitles", "completed"],
+          "maxLength": 40,
+          "description": "Current processing step."
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["gemini", "whisper", "ffmpeg"],
+          "maxLength": 30,
+          "description": "Processing engine provider."
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Error message if failed, or empty string."
+        },
+        "attempts": {
+          "type": "number",
+          "description": "Number of execution attempts."
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Job start timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "projectId",
+        "type",
+        "status",
+        "progress",
+        "step",
+        "provider",
+        "error",
+        "attempts",
+        "startedAt",
+        "updatedAt"
+      ]
+    },
+    "ExportItem": {
+      "title": "ExportItem",
+      "description": "Generated SRT, VTT, TXT, or burned-in MP4 export artifact.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the project owner."
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent project ID."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["srt", "vtt", "txt", "burn"],
+          "maxLength": 20,
+          "description": "Export file format."
+        },
+        "outputPath": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Server storage path of exported file."
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Download URL for the exported artifact."
+        },
+        "fontUsed": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Khmer/Latin font used for burn-in."
+        },
+        "createdBy": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user who initiated the export."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Export creation server timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "projectId",
+        "format",
+        "outputPath",
+        "url",
+        "fontUsed",
+        "createdBy",
+        "createdAt"
+      ]
+    },
+    "Template": {
+      "title": "Template",
+      "description": "Caption style template for Khmer/English burned-in subtitles.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of template creator."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Template display name."
+        },
+        "font": {
+          "type": "string",
+          "enum": [
+            "Battambang",
+            "Noto Sans Khmer",
+            "Khmer UI",
+            "Siemreap",
+            "Hanuman",
+            "Kantumruy Pro",
+            "English Sans",
+            "Plus Jakarta Sans",
+            "Custom Font"
+          ],
+          "maxLength": 60,
+          "description": "Font family."
+        },
+        "fontSize": {
+          "type": "number",
+          "description": "Font size in pixels (16 to 96)."
+        },
+        "primaryColor": {
+          "type": "string",
+          "maxLength": 20,
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Hex color for primary caption text."
+        },
+        "accentColor": {
+          "type": "string",
+          "maxLength": 20,
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Hex color for active speaker/word highlight."
+        },
+        "outline": {
+          "type": "number",
+          "description": "Outline stroke width in pixels (0 to 10)."
+        },
+        "position": {
+          "type": "string",
+          "enum": ["bottom", "middle", "top", "custom"],
+          "maxLength": 20,
+          "description": "Vertical alignment of captions."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the template is shared publicly."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update server timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "name",
+        "font",
+        "fontSize",
+        "primaryColor",
+        "accentColor",
+        "outline",
+        "position",
+        "isPublic",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User account profiles and usage quotas."
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Subtitle projects owned by users."
+    },
+    "/projects/{projectId}/segments/{segmentId}": {
+      "schema": "Segment",
+      "description": "Timed subtitle segments belonging to a project."
+    },
+    "/projects/{projectId}/jobs/{jobId}": {
+      "schema": "Job",
+      "description": "Background transcription and export jobs for a project."
+    },
+    "/projects/{projectId}/exports/{exportId}": {
+      "schema": "ExportItem",
+      "description": "Exported SRT, VTT, TXT, and burned-in MP4 artifacts."
+    },
+    "/templates/{templateId}": {
+      "schema": "Template",
+      "description": "Khmer and English caption style templates."
+    }
+  }
+}
