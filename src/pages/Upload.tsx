@@ -10,6 +10,8 @@ import {
   Square,
   Link2,
   Type as TypeIcon,
+  X,
+  RefreshCw,
 } from 'lucide-react';
 import {
   AsrProvider,
@@ -19,7 +21,11 @@ import {
   VALIDATION_LIMITS,
   WordsPerSegmentOption,
 } from '../../shared/segment.schema';
-import { requestUploadUrl, uploadAndStartTranscription } from '../lib/api';
+import {
+  requestUploadUrl,
+  uploadAndStartTranscription,
+  cancelUploadSessionApi,
+} from '../lib/api';
 import {
   batchSaveSegmentsToFirestore,
   createFirestoreJob,
@@ -60,8 +66,25 @@ export const UploadPage: React.FC<UploadPageProps> = ({ uid, onProjectReady }) =
     percent: number;
     uploadedBytes: number;
     totalBytes: number;
+    currentChunk?: number;
+    totalChunks?: number;
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const currentUploadIdRef = useRef<string | null>(null);
+
+  const cancelCurrentUpload = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    if (currentUploadIdRef.current) {
+      await cancelUploadSessionApi(currentUploadIdRef.current);
+      currentUploadIdRef.current = null;
+    }
+    setIsSubmitting(false);
+    setUploadProgress(null);
+    setErrorMsg('Upload was cancelled. You can retry anytime.');
+  };
 
   // Secondary Mode 1: Record Audio
   const [showRecorder, setShowRecorder] = useState(false);
@@ -198,6 +221,8 @@ export const UploadPage: React.FC<UploadPageProps> = ({ uid, onProjectReady }) =
     setIsSubmitting(true);
     setErrorMsg(null);
     setUploadProgress(null);
+    abortControllerRef.current = new AbortController();
+    currentUploadIdRef.current = null;
 
     try {
       const effectiveUid = uid || 'guest_creator';
@@ -221,8 +246,12 @@ export const UploadPage: React.FC<UploadPageProps> = ({ uid, onProjectReady }) =
         wordsPerSegment,
         useDemoClip,
         youtubeUrl: customYoutubeUrl,
-        onUploadProgress: (percent, uploadedBytes, totalBytes) => {
-          setUploadProgress({ percent, uploadedBytes, totalBytes });
+        signal: abortControllerRef.current.signal,
+        onSessionCreated: (sessionId) => {
+          currentUploadIdRef.current = sessionId;
+        },
+        onUploadProgress: (percent, uploadedBytes, totalBytes, currentChunk, totalChunks) => {
+          setUploadProgress({ percent, uploadedBytes, totalBytes, currentChunk, totalChunks });
         },
       });
 
@@ -280,8 +309,12 @@ export const UploadPage: React.FC<UploadPageProps> = ({ uid, onProjectReady }) =
 
       setActiveProject(newProject);
       setActiveJobId(created.jobId);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to start pipeline');
+    } catch (err: any) {
+      if (err.message?.includes('cancelled') || abortControllerRef.current?.signal.aborted) {
+        setErrorMsg('Upload was cancelled. You can retry anytime.');
+      } else {
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to start pipeline');
+      }
       setIsSubmitting(false);
       setUploadProgress(null);
     }
@@ -318,17 +351,38 @@ export const UploadPage: React.FC<UploadPageProps> = ({ uid, onProjectReady }) =
         </button>
       </div>
 
-      {/* Resumable Chunked Video Upload Progress Bar for Large Videos */}
+      {/* Resumable Chunked Video Upload Progress Bar with Cancel Action */}
       {uploadProgress && !job && (
         <div className="border border-slate-800 bg-[#111827] rounded-xl p-5 space-y-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-100">
-              Uploading Large Video in 4 MB Chunks...
-            </span>
-            <span className="font-mono text-amber-400 tabular-nums">
-              {uploadProgress.percent}% · {(uploadProgress.uploadedBytes / (1024 * 1024)).toFixed(1)} MB /{' '}
-              {(uploadProgress.totalBytes / (1024 * 1024)).toFixed(1)} MB
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="space-y-0.5">
+              <span className="font-semibold text-slate-100 flex items-center gap-2">
+                <span>Uploading Large Video via Multipart Session...</span>
+                {uploadProgress.currentChunk && uploadProgress.totalChunks && (
+                  <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 font-mono">
+                    Chunk {uploadProgress.currentChunk} / {uploadProgress.totalChunks}
+                  </span>
+                )}
+              </span>
+              <p className="text-[11px] text-slate-400">
+                Chunked streaming direct to disk · Sequence verified
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-amber-400 tabular-nums">
+                {uploadProgress.percent}% · {(uploadProgress.uploadedBytes / (1024 * 1024)).toFixed(1)} MB /{' '}
+                {(uploadProgress.totalBytes / (1024 * 1024)).toFixed(1)} MB
+              </span>
+              <button
+                type="button"
+                onClick={cancelCurrentUpload}
+                className="flex items-center gap-1 px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-[11px] font-semibold rounded-lg transition-colors"
+                title="Cancel ongoing upload session"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+            </div>
           </div>
           <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
             <div
@@ -620,9 +674,23 @@ export const UploadPage: React.FC<UploadPageProps> = ({ uid, onProjectReady }) =
           </div>
 
           {errorMsg && (
-            <div className="flex items-center gap-2 text-xs text-rose-400">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorMsg}</span>
+            <div className="p-3 border border-rose-500/30 bg-rose-950/20 rounded-xl flex items-start justify-between gap-3 text-xs text-rose-300">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-semibold text-rose-200">Upload / Transcription Error</p>
+                  <p className="text-[11px] text-rose-300/90 leading-relaxed">{errorMsg}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => startPipeline(false)}
+                disabled={isSubmitting || !selectedFile}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-xs font-semibold rounded-lg border border-rose-500/40 transition-colors whitespace-nowrap shrink-0 disabled:opacity-40"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Retry</span>
+              </button>
             </div>
           )}
 

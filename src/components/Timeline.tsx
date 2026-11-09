@@ -30,6 +30,7 @@ import {
   resolveFontFamilyCss,
 } from '../../shared/segment.schema';
 import { formatTimestampDisplay } from '../lib/srt';
+import { appendAuthTokenToUrl } from '../lib/api';
 
 interface TimelineProps {
   segments: SubtitleSegment[];
@@ -156,10 +157,15 @@ export const Timeline: React.FC<TimelineProps> = ({
     video.crossOrigin = 'anonymous';
     video.muted = true;
     video.preload = 'auto';
-    video.src = videoUrl;
 
     const extractFrames = async () => {
       try {
+        const resolvedSrc = videoUrl.startsWith('/media/')
+          ? await appendAuthTokenToUrl(videoUrl)
+          : videoUrl;
+        if (cancelled) return;
+        video.src = resolvedSrc;
+
         await new Promise<void>((resolve, reject) => {
           video.onloadeddata = () => resolve();
           video.onerror = () => reject(new Error('video load failed'));

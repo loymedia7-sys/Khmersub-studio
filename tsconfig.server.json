@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "server.ts",
+    "server/**/*",
+    "shared/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "dist-server",
+    "node_modules"
+  ]
+}

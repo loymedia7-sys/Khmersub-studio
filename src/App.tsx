@@ -14,6 +14,7 @@ import {
   ProjectRecord,
   UserProfileRecord,
 } from '../shared/segment.schema';
+import { deleteBackendProject } from './lib/api';
 import { UploadPage } from './pages/Upload';
 import { ProjectsPage } from './pages/Projects';
 import { EditorPage, RightWorkspaceTab } from './pages/Editor';
@@ -96,6 +97,11 @@ export default function App() {
   };
 
   const handleDeleteProject = async (projectId: string) => {
+    try {
+      await deleteBackendProject(projectId).catch(() => {});
+    } catch {
+      // non-blocking
+    }
     if (user) {
       await softDeleteFirestoreProject(projectId);
     }

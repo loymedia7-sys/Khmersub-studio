@@ -23,6 +23,7 @@ import {
   resolveFontWeightCss,
 } from '../../shared/segment.schema';
 import { formatTimestampHMS } from '../lib/srt';
+import { appendAuthTokenToUrl } from '../lib/api';
 
 interface VideoPlayerProps {
   videoUrl: string;
@@ -128,8 +129,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [effectiveRatioKey]);
 
+  const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string>(videoUrl);
+
   useEffect(() => {
+    let active = true;
     setVideoError(false);
+    if (videoUrl && videoUrl.startsWith('/media/')) {
+      appendAuthTokenToUrl(videoUrl).then((authUrl) => {
+        if (active) setResolvedVideoUrl(authUrl);
+      });
+    } else {
+      setResolvedVideoUrl(videoUrl);
+    }
+    return () => {
+      active = false;
+    };
   }, [videoUrl]);
 
   useEffect(() => {
@@ -141,7 +155,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [seekTrigger]);
 
   useEffect(() => {
-    if (!videoError && videoUrl) return;
+    if (!videoError && resolvedVideoUrl) return;
     if (!isPlaying) return;
     const interval = window.setInterval(() => {
       onTimeUpdate(
@@ -515,10 +529,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <div
           className={`relative ${frameBoxClasses} bg-black rounded-lg overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.8)] border border-white/10 flex items-center justify-center transition-all duration-200`}
         >
-          {videoUrl && !videoError ? (
+          {resolvedVideoUrl && !videoError ? (
             <video
               ref={videoRef}
-              src={videoUrl}
+              src={resolvedVideoUrl}
               className={`w-full h-full ${
                 selectedScaleMode === 'fill' ? 'object-cover' : 'object-contain'
               } ${videoVisible ? 'opacity-100' : 'opacity-0'}`}
