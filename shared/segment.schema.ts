@@ -25,7 +25,16 @@ export type LanguageOption = 'km' | 'en' | 'km+en';
 export type SegmentLang = 'km' | 'en' | 'mixed';
 export type ProjectStatus = 'uploaded' | 'transcribing' | 'ready' | 'exporting' | 'done' | 'failed';
 export type JobType = 'transcribe' | 'export_srt' | 'export_vtt' | 'export_txt' | 'export_burn';
-export type JobStatus = 'queued' | 'running' | 'done' | 'failed';
+export type JobStatus =
+  | 'pending'
+  | 'uploading'
+  | 'queued'
+  | 'processing'
+  | 'running'
+  | 'completed'
+  | 'done'
+  | 'failed'
+  | 'cancelled';
 export type JobStep = 'queued' | 'extract_audio' | 'asr' | 'postprocess' | 'save' | 'burn_subtitles' | 'completed';
 export type AsrProvider = 'gemini' | 'whisper' | 'ffmpeg';
 export type ExportFormat = 'srt' | 'vtt' | 'txt' | 'pdf' | 'word' | 'markdown' | 'burn';
@@ -190,8 +199,13 @@ export interface JobRecord {
   provider: AsrProvider;
   error: string;
   attempts: number;
+  maxAttempts?: number;
+  lockOwner?: string;
+  lockedAt?: number;
+  heartbeatAt?: number;
   startedAt?: unknown;
   updatedAt?: unknown;
+  completedAt?: unknown;
   resultSegments?: SubtitleSegment[];
   exportResult?: {
     format: ExportFormat;

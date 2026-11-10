@@ -291,7 +291,7 @@
         },
         "status": {
           "type": "string",
-          "enum": ["queued", "running", "done", "failed"],
+          "enum": ["pending", "uploading", "queued", "processing", "running", "completed", "done", "failed", "cancelled"],
           "maxLength": 20,
           "description": "Current execution state."
         },

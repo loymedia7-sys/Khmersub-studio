@@ -40,7 +40,12 @@ export function useJobStatus(
           });
         }
 
-        if (data.status === 'done' || data.status === 'failed') {
+        if (
+          data.status === 'done' ||
+          data.status === 'completed' ||
+          data.status === 'failed' ||
+          data.status === 'cancelled'
+        ) {
           setIsPolling(false);
           if (onCompleted) {
             onCompleted(data);

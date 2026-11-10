@@ -22,35 +22,51 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 }) => {
   const [msgIndex, setMsgIndex] = useState(0);
 
+  const isProcessing =
+    job?.status === 'running' ||
+    job?.status === 'processing' ||
+    job?.status === 'queued' ||
+    job?.status === 'uploading' ||
+    job?.status === 'pending';
+  const isDone = job?.status === 'done' || job?.status === 'completed';
+  const isCancelled = job?.status === 'cancelled';
+
   useEffect(() => {
-    if (!job || job.status !== 'running') return;
+    if (!isProcessing) return;
     const timer = window.setInterval(() => {
       setMsgIndex((prev) => (prev + 1) % ANIMATED_STATUS_LINES.length);
     }, 1100);
     return () => window.clearInterval(timer);
-  }, [job?.status]);
+  }, [isProcessing]);
 
   if (!job) return null;
 
   const pct = Math.min(100, Math.max(8, Math.round((job.progress || 0.16) * 100)));
   const currentSec = Math.round((pct / 100) * totalDurationSec);
-  const statusLine =
-    job.status === 'done'
-      ? 'Transcript & Subtitles Ready!'
-      : ANIMATED_STATUS_LINES[msgIndex];
+  const statusLine = isDone
+    ? 'Transcript & Subtitles Ready!'
+    : isCancelled
+    ? 'Job Cancelled'
+    : ANIMATED_STATUS_LINES[msgIndex];
 
   return (
     <div className="border border-slate-800 bg-[#111827] rounded-xl p-6 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            {job.status === 'done' ? (
+            {isDone ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : isCancelled ? (
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             ) : (
               <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
             )}
             <h3 className="text-sm font-semibold text-slate-100">
-              Transcribing your audio...
+              {isDone
+                ? 'Transcription Completed'
+                : isCancelled
+                ? 'Transcription Cancelled'
+                : 'Transcribing your audio...'}
             </h3>
           </div>
           <p className="text-sm text-amber-300 font-medium transition-opacity duration-200">

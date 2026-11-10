@@ -137,7 +137,7 @@ service cloud.firestore {
         data.type is string && data.type.size() <= 30 &&
         (data.type == 'transcribe' || data.type == 'export_srt' || data.type == 'export_vtt' || data.type == 'export_txt' || data.type == 'export_burn') &&
         data.status is string && data.status.size() <= 20 &&
-        (data.status == 'queued' || data.status == 'running' || data.status == 'done' || data.status == 'failed') &&
+        (data.status == 'pending' || data.status == 'uploading' || data.status == 'queued' || data.status == 'processing' || data.status == 'running' || data.status == 'completed' || data.status == 'done' || data.status == 'failed' || data.status == 'cancelled') &&
         data.progress is number && data.progress >= 0 && data.progress <= 1 &&
         data.step is string && data.step.size() <= 40 &&
         (data.step == 'queued' || data.step == 'extract_audio' || data.step == 'asr' || data.step == 'postprocess' || data.step == 'save' || data.step == 'burn_subtitles' || data.step == 'completed') &&
@@ -289,7 +289,9 @@ service cloud.firestore {
           isValidId(projectId) && isValidId(jobId) &&
           existing().ownerId == request.auth.uid &&
           existing().status != 'done' &&
+          existing().status != 'completed' &&
           existing().status != 'failed' &&
+          existing().status != 'cancelled' &&
           incoming().ownerId == existing().ownerId &&
           incoming().projectId == existing().projectId &&
           incoming().type == existing().type &&
